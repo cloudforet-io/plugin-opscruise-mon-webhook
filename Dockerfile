@@ -21,5 +21,5 @@ RUN python3 setup.py install && \
 
 EXPOSE ${SPACEONE_PORT}
 
-ENTRYPOINT ["cloudforet"]
-CMD ["grpc", "spaceone.monitoring"]
+ENTRYPOINT ["spaceone"]
+CMD ["grpc", "cloudforet.monitoring"]
