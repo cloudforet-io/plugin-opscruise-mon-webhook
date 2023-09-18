@@ -1,5 +1,5 @@
 import logging
-from spaceone.core import utils
+from spaceone.core.utils import load_yaml
 from datetime import datetime
 from spaceone.core.manager import BaseManager
 from cloudforet.monitoring.model import EventModel
@@ -12,17 +12,19 @@ class EventManager(BaseManager):
         super().__init__(*args, **kwargs)
 
     def parse(self, raw_data):
+        text = raw_data.get('text')
+        data = load_yaml(text)
 
         results = []
 
-        event_key = raw_data['ticket']['ticketId']
-        event_type = self._generate_event_type(raw_data['header'].get('msgType'))
-        title = raw_data['summary']
-        description = raw_data.get('description')
-        severity = self._generate_severity(raw_data['ticket'].get('priority'))
-        resource = self._generate_resource(raw_data)
-        additional_info = self._generate_additional_info(raw_data.get('ticket'))
-        occurred_at = self._get_occurred_at(raw_data.get('ticket').get('updated'))
+        event_key = data['Ticket ID']
+        event_type = self._generate_event_type(data.get('Header Message Type'))
+        title = data['Summary']
+        description = data.get('Description')
+        severity = self._generate_severity(data.get('Ticket Priority'))
+        resource = self._generate_resource(data)
+        additional_info = self._generate_additional_info(data)
+        occurred_at = self._get_occurred_at(data.get('Ticket Updated'))
 
         event_dict = {
             'event_key': event_key,
@@ -70,25 +72,25 @@ class EventManager(BaseManager):
         return severity
 
     @staticmethod
-    def _generate_resource(raw_data):
+    def _generate_resource(data):
         resource = {}
 
-        if resource_type := raw_data.get('target').get('type'):
+        if resource_type := data.get('Target Type'):
             resource['resource_type'] = resource_type
 
-        if name := raw_data.get('target').get('name'):
+        if name := data.get('Target Name'):
             resource['name'] = name
         return resource
 
     @staticmethod
-    def _generate_additional_info(ticket):
+    def _generate_additional_info(data):
         additional_info = {}
 
-        if ticket_escalation := ticket.get('escalation'):
+        if ticket_escalation := data.get('Ticket Escalation'):
             additional_info['ticket_escalation'] = ticket_escalation
-        if instance_ip := ticket.get('targetNode'):
+        if instance_ip := data.get('Target Node'):
             additional_info['instance_ip'] = instance_ip
-        if pod_name := ticket.get('targetPod'):
+        if pod_name := data.get('Target Pod'):
             additional_info['pod_name'] = pod_name
 
         return additional_info
@@ -96,6 +98,6 @@ class EventManager(BaseManager):
     @staticmethod
     def _get_occurred_at(updated):
         if updated:
-            return datetime.strptime(updated, '%Y-%m-%dT%H:%M:%S.%fZ')
+            return updated
         else:
             return datetime.now()
