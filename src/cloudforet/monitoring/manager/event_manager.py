@@ -33,7 +33,7 @@ class EventManager(BaseManager):
             'severity': severity,
             'resource': resource,
             'occurred_at': occurred_at,
-            'additional_info': additional_info
+            'additional_info': self._change_string_value(additional_info)
         }
 
         event_result_model = EventModel(event_dict, strict=False)
@@ -115,11 +115,14 @@ class EventManager(BaseManager):
             resource['name'] = name
         return resource
 
-    @staticmethod
-    def _generate_additional_info(opscruise_data):
+    def _change_string_value(self, opscruise_data):
         additional_info = {}
 
         for key, value in opscruise_data.items():
+            if isinstance(value, datetime):
+                value = str(self._change_datetime_to_str(value))
+            elif value is None:
+                value = ''
             additional_info[key] = value
 
         return additional_info
