@@ -1,11 +1,5 @@
 from schematics.models import Model
-from schematics.types import StringType, ModelType, DateTimeType
-
-
-class OpsCruiseAdditionalInfo(Model):
-    ticket_escalation = StringType(default='')
-    instance_ip = StringType(default='')
-    pod_name = StringType(default='')
+from schematics.types import StringType, ModelType, DateTimeType, DictType, UnionType, FloatType
 
 
 class ResourceModel(Model):
@@ -22,5 +16,5 @@ class EventModel(Model):
     resource = ModelType(ResourceModel)
     rule = StringType(default='')
     occurred_at = DateTimeType()
-    additional_info = ModelType(OpsCruiseAdditionalInfo)
+    additional_info = DictType(UnionType([StringType(), FloatType()]))
     image_url = StringType(default='')
