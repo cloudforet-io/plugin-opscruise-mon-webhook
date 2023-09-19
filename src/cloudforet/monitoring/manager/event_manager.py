@@ -13,18 +13,17 @@ class EventManager(BaseManager):
 
     def parse(self, raw_data):
         text = raw_data.get('text')
-        data = load_yaml(text)
+        additional_info = load_yaml(text)
 
         results = []
 
-        event_key = data['Ticket ID']
-        event_type = self._generate_event_type(data.get('Header Message Type'))
-        title = data['Summary']
-        description = data.get('Description')
-        severity = self._generate_severity(data.get('Ticket Priority'))
-        resource = self._generate_resource(data)
-        additional_info = self._generate_additional_info(data)
-        occurred_at = self._get_occurred_at(data.get('Ticket Updated'))
+        event_key = additional_info['Ticket ID']
+        event_type = self._generate_event_type(additional_info.get('Header Message Type'))
+        title = additional_info['Summary']
+        description = self._generate_description(additional_info)
+        severity = self._generate_severity(additional_info.get('Ticket Priority'))
+        resource = self._generate_resource(additional_info)
+        occurred_at = self._get_occurred_at(additional_info.get('Ticket Updated'))
 
         event_dict = {
             'event_key': event_key,
@@ -59,6 +58,40 @@ class EventManager(BaseManager):
             event_type = 'ALERT'
         return event_type
 
+    def _generate_description(self, additional_info):
+        top_text = additional_info.get('Description', '')
+
+        middle_descriptions = []
+        custom_middle_description = {
+            '대상': additional_info.get('Target Name', ''),
+            '노드 이름': additional_info.get('Target Node', ''),
+            '네임스페이스': additional_info.get('Target Namespace', ''),
+            '파드 이름': additional_info.get('Target Pod', ''),
+            '컨테이너 이름': additional_info.get('Target Container', ''),
+        }
+        for key, value in custom_middle_description.items():
+
+            if value is None:
+                value = ''
+
+            middle_descriptions.append(f'{key}: {value}')
+
+        bottom_descriptions = []
+        custom_bottom_description = {
+            '발생 시간': self._change_datetime_to_str(additional_info.get('Ticket Created')),
+            '업데이트 시간': self._change_datetime_to_str(additional_info.get('Ticket Updated')),
+            'Ticket URL': additional_info.get('Ticket URL', '')
+        }
+        for key, value in custom_bottom_description.items():
+            bottom_descriptions.append(f'{key}: {value}')
+
+        middle_text = '\n'.join(middle_descriptions)
+        bottom_text = '\n'.join(bottom_descriptions)
+
+        total_text = [top_text, middle_text, bottom_text]
+
+        return '\n\n'.join(total_text)
+
     @staticmethod
     def _generate_severity(priority):
         if priority == 'High':
@@ -83,15 +116,11 @@ class EventManager(BaseManager):
         return resource
 
     @staticmethod
-    def _generate_additional_info(data):
+    def _generate_additional_info(opscruise_data):
         additional_info = {}
 
-        if ticket_escalation := data.get('Ticket Escalation'):
-            additional_info['ticket_escalation'] = ticket_escalation
-        if instance_ip := data.get('Target Node'):
-            additional_info['instance_ip'] = instance_ip
-        if pod_name := data.get('Target Pod'):
-            additional_info['pod_name'] = pod_name
+        for key, value in opscruise_data.items():
+            additional_info[key] = value
 
         return additional_info
 
@@ -101,3 +130,7 @@ class EventManager(BaseManager):
             return updated
         else:
             return datetime.now()
+
+    @staticmethod
+    def _change_datetime_to_str(time):
+        return time.strftime('%Y-%m-%d %H:%M:%S')
